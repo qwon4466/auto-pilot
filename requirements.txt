@@ -1,0 +1,19 @@
+# Python dependencies only. Install with:
+#   python3 -m pip install -r requirements.txt
+#
+# This file cannot install ROS 2, Nav2, Gazebo, TurtleBot3, colcon, or rosdep.
+# Those are Ubuntu/ROS APT packages and are listed in
+# tools/install_desktop_dependencies.sh. On ROS systems, prefer the OS packages
+# to keep Python modules aligned with the ROS installation.
+# The desktop APT set is: ros-jazzy-desktop, ros-dev-tools,
+# python3-colcon-common-extensions, python3-rosdep, python3-yaml,
+# python3-pytest, ros-jazzy-navigation2, ros-jazzy-nav2-bringup,
+# ros-jazzy-nav2-simple-commander, ros-jazzy-ros-gz-sim,
+# ros-jazzy-ros-gz-bridge, ros-jazzy-turtlebot3,
+# ros-jazzy-turtlebot3-simulations, ros-jazzy-domain-bridge.
+# OpenCR firmware compilation additionally uses Arduino CLI, OpenCR core
+# 1.5.3, Dynamixel2Arduino 0.6.1 and (on x86_64) libncurses5-dev:i386; see
+# docs/phase9-12-controller-test.md.
+
+PyYAML>=6,<7
+pytest>=7,<9

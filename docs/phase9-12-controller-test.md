@@ -173,14 +173,14 @@ testing; this project has not installed a custom network protocol.
 
 Repository files now include a user-facing `README.md`, the phase records, source
 patches, an apply script, sim and real-robot launch files, and `.gitignore`. This
-workspace's local Git repository is on branch `main`; it has no commit and no
-remote yet. Publishing cannot be completed without a GitHub repository URL or
-authorized `gh` repository creation. Once the remote exists:
+workspace's local Git repository is on branch `main` with an initial project
+commit. It has no remote yet. Publishing cannot be completed without a GitHub
+repository URL or authorized `gh` repository creation. Once the remote exists:
 
 ```bash
 cd ~/bellingham
-git add .gitignore README.md PROJECT_SUMMARY_AND_RUNBOOK.txt docs src firmware tools
-git diff --cached --check
+git add .
+git -c core.whitespace=cr-at-eol,-blank-at-eol diff --cached --check
 git commit -m "Add TurtleBot3 waypoint patrol and RC-100 integration"
 git remote add origin <GitHub repository URL>
 git push -u origin main

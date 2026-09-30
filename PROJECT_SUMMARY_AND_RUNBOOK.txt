@@ -30,7 +30,8 @@ Phase 9–12 작업 상태 (코드/문서 준비와 실제 장비 검증을 구�
   OpenCR 펌웨어 compile/flash, Pi overlay build, RC controller 신호 검증은 미완료.
 - Phase 10 코드: IDLE에서는 기존 방향키를 쓰고 PATROL 중에는 Nav2가 wheel
   control을 소유하도록 OpenCR 제어 경로를 패치. 실제 로봇에서 확인은 미완료.
-- Phase 11: README 및 GitHub 준비 파일을 만들었으나 commit/remote/push 미완료.
+- Phase 11: README/requirements 및 설치 파일을 만들고 로컬 Git commit 완료.
+  GitHub remote와 push는 저장소 URL이 없어 미완료.
 - Phase 12: real robot launch와 Pi overlay build script 추가. Pi에서 실행 및
   실제 지도/경유점/장애물 검증은 미완료.
 
@@ -273,10 +274,10 @@ IDLE에서 기존 수동주행을 유지하고 PATROL 중 STOP 버튼이 우선�
 9. Git 및 실제 Pi 배포 상태
 ======================================================================
 
-Git 저장소는 이 폴더에 main branch로 초기화되어 있다. 생성된 build/install/
-log 및 Python cache 등을 제외하도록 .gitignore가 있다. 현재 작업 파일은 아직
-untracked이며 commit과 GitHub remote는 설정되지 않았다. 따라서 실제 Pi에서
-git clone/pull할 수 있는 배포 저장소는 아직 없다.
+Git 저장소는 이 폴더에 main branch로 초기화되어 있고 프로젝트 파일은 로컬
+초기 commit에 저장되어 있다. 생성된 build/install/log 및 Python cache 등을
+제외하도록 .gitignore가 있다. GitHub remote는 아직 설정되지 않았다. 따라서
+실제 Pi에서 git clone/pull할 수 있는 배포 저장소는 아직 없다.
 
 Git 상태 확인:
 
@@ -342,6 +343,10 @@ docs/phase9-12-controller-test.md
 
 README.md
   GitHub용 프로젝트 개요와 quickstart
+
+requirements.txt 및 tools/install_desktop_dependencies.sh
+  pip 설치 가능한 Python 의존성과 Ubuntu/ROS APT 시스템 의존성을 구분한 목록,
+  ROS 2 Jazzy 데스크톱 의존성 설치 스크립트
 
 ======================================================================
 11. 단계별 문서와 검증 기록

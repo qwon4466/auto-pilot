@@ -12,6 +12,13 @@ Do not treat RC hardware integration or physical robot STOP behavior as validate
 
 ## Build and test on the desktop
 
+On a fresh Ubuntu 24.04 desktop with the ROS 2 Jazzy APT repository configured,
+install system dependencies with `tools/install_desktop_dependencies.sh`. Then
+install this project's Python-level requirements if desired with
+`python3 -m pip install -r requirements.txt`. The pip file does not and cannot
+install ROS 2, Nav2, Gazebo, TurtleBot3, colcon, or rosdep; use Ubuntu APT for
+those packages.
+
 ```bash
 cd ~/bellingham
 source /opt/ros/jazzy/setup.bash
