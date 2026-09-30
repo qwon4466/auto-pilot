@@ -1,5 +1,10 @@
 # Phase 6: STOP 즉시 취소와 정지
 
+> Historical implementation note: this phase recorded cancellation of the former
+> Nav2 FollowWaypoints task. The current odometry controller has no Nav2 task to
+> cancel; STOP publishes zero `TwistStamped` immediately and transitions through
+> STOPPING to IDLE. See [SIMULATOR_GUIDE_KO.md](../SIMULATOR_GUIDE_KO.md).
+
 `PatrolController`는 `PATROL` 중 STOP을 받으면 `STOPPING`으로 바꾸고 `BasicNavigator.cancelTask()`를 기다린 뒤 `geometry_msgs/msg/TwistStamped`의 0속도 명령을 `/cmd_vel`에 발행한다. 취소가 끝난 뒤 `TASK_CANCELLED`를 적용해 `IDLE`로 돌아간다. IDLE STOP과 중복 START는 상태 머신에서 무시한다. Ctrl+C 종료 시에도 진행 중인 Nav2 task를 취소하고 0속도를 발행한다.
 
 Gazebo 테스트 중 두 번째 FollowWaypoints task에서 STOP을 보냈다. 상태 topic은 `STOPPING`, `IDLE`을 발행했고 로그에는 `Canceling current task`, Nav2 action cancel success, `TASK_CANCELLED: STOPPING -> IDLE`가 기록됐다. 이전 mock velocity echo에서도 STOP 직후 zero `TwistStamped`를 확인했다.

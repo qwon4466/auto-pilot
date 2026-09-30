@@ -14,7 +14,7 @@ index 35e7e42..a6a4dcd 100644
    ControlItem button_2 = {27, RAM, 1, READ};
  
 diff --git a/turtlebot3_node/include/turtlebot3_node/turtlebot3.hpp b/turtlebot3_node/include/turtlebot3_node/turtlebot3.hpp
-index fdc70e4..343f2a2 100644
+index fdc70e4..aa1b127 100644
 --- a/turtlebot3_node/include/turtlebot3_node/turtlebot3.hpp
 +++ b/turtlebot3_node/include/turtlebot3_node/turtlebot3.hpp
 @@ -34,6 +34,7 @@
@@ -34,11 +34,12 @@ index fdc70e4..343f2a2 100644
  
    void cmd_vel_callback();
    void parameter_event_callback();
-@@ -107,6 +110,11 @@ private:
+@@ -107,6 +110,12 @@ private:
  
    rclcpp::TimerBase::SharedPtr publish_timer_;
    rclcpp::TimerBase::SharedPtr heartbeat_timer_;
 +  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr rc100_command_pub_;
++  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr patrol_input_source_pub_;
 +  rclcpp::Subscription<std_msgs::msg::String>::SharedPtr patrol_state_sub_;
 +  bool rc100_sequences_initialized_{false};
 +  uint8_t previous_rc100_button_1_sequence_{0};
@@ -47,7 +48,7 @@ index fdc70e4..343f2a2 100644
    std::unique_ptr<TwistSubscriber> cmd_vel_sub_;
  
 diff --git a/turtlebot3_node/src/turtlebot3.cpp b/turtlebot3_node/src/turtlebot3.cpp
-index 55bb2e3..5f5d76c 100644
+index 55bb2e3..8eabc76 100644
 --- a/turtlebot3_node/src/turtlebot3.cpp
 +++ b/turtlebot3_node/src/turtlebot3.cpp
 @@ -16,6 +16,7 @@
@@ -58,12 +59,14 @@ index 55bb2e3..5f5d76c 100644
  #include <memory>
  #include <string>
  
-@@ -222,6 +223,13 @@ void TurtleBot3::run()
+@@ -222,6 +223,15 @@ void TurtleBot3::run()
  {
    RCLCPP_INFO(this->get_logger(), "Run!");
  
 +  rc100_command_pub_ = this->create_publisher<std_msgs::msg::String>(
 +    "/patrol_command", rclcpp::QoS(rclcpp::KeepLast(10)));
++  patrol_input_source_pub_ = this->create_publisher<std_msgs::msg::String>(
++    "/patrol_input_source", rclcpp::QoS(rclcpp::KeepLast(10)));
 +  patrol_state_sub_ = this->create_subscription<std_msgs::msg::String>(
 +    "/patrol_state",
 +    rclcpp::QoS(rclcpp::KeepLast(1)).transient_local(),
@@ -72,7 +75,7 @@ index 55bb2e3..5f5d76c 100644
    publish_timer(std::chrono::milliseconds(50));
    heartbeat_timer(std::chrono::milliseconds(100));
  
-@@ -239,6 +247,8 @@ void TurtleBot3::publish_timer(const std::chrono::milliseconds timeout)
+@@ -239,6 +249,8 @@ void TurtleBot3::publish_timer(const std::chrono::milliseconds timeout)
  
        dxl_sdk_wrapper_->read_data_set();
  
@@ -81,7 +84,7 @@ index 55bb2e3..5f5d76c 100644
        for (const auto & sensor : sensors_) {
          sensor->publish(now, dxl_sdk_wrapper_);
        }
-@@ -246,6 +256,50 @@ void TurtleBot3::publish_timer(const std::chrono::milliseconds timeout)
+@@ -246,6 +258,54 @@ void TurtleBot3::publish_timer(const std::chrono::milliseconds timeout)
    );
  }
  
@@ -107,6 +110,9 @@ index 55bb2e3..5f5d76c 100644
 +  previous_rc100_button_4_sequence_ = button_4_sequence;
 +
 +  if (stop_requested || start_requested) {
++    std_msgs::msg::String input_source;
++    input_source.data = "RC100";
++    patrol_input_source_pub_->publish(input_source);
 +    std_msgs::msg::String command;
 +    command.data = stop_requested ? "STOP" : "START";
 +    rc100_command_pub_->publish(command);
@@ -116,7 +122,8 @@ index 55bb2e3..5f5d76c 100644
 +
 +void TurtleBot3::patrol_state_callback(const std_msgs::msg::String::SharedPtr msg)
 +{
-+  uint8_t patrol_active = msg->data == "PATROL" ? 1 : 0;
++  const bool active = msg->data == "FORWARD" || msg->data == "TURN_RIGHT";
++  uint8_t patrol_active = active ? 1 : 0;
 +  std::string sdk_msg;
 +  if (!dxl_sdk_wrapper_->set_data_to_device(
 +      extern_control_table.patrol_active.addr,

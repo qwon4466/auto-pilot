@@ -5,8 +5,23 @@ Updated: 2026-09-30
 This document records the hardware transport patch and the test path for the user's
 RC-100 + BT-410 currently connected to the TurtleBot3 OpenCR/Pi. The desktop
 simulator must use a different ROS domain from the physical robot. Do not start the
-simulation in the robot's domain: Nav2 publishes `/cmd_vel` and that could be
-consumed by the real base.
+simulation in the robot's domain: simulator `/cmd_vel` could be consumed by the
+real base.
+
+## Current patrol implementation update
+
+The old Nav2 waypoint controller is superseded for the square patrol behavior.
+The shared desktop/Pi controller now uses `/odom` to measure 0.15 m forward travel
+and quaternion yaw to measure a right turn of π/2. It publishes `FORWARD` and
+`TURN_RIGHT` on `/patrol_state`, increments the loop count after four sides, and
+uses the same `/cmd_vel` topic. The desktop demo includes Gazebo, RViz, keyboard,
+controller, and monitor in one launch. See
+[SIMULATOR_GUIDE_KO.md](../SIMULATOR_GUIDE_KO.md) for the current operation guide.
+
+The host patch recognizes `FORWARD` and `TURN_RIGHT` as active patrol ownership and
+publishes `RC100` as the input source. It was rebuilt against the pinned TurtleBot3
+source in the current work session. The physical OpenCR remains unflashed and the
+Pi remains untested.
 
 ## Phase 9 — RC-100 event transport
 
@@ -25,7 +40,7 @@ Changes stored in `firmware/patches/`:
 - OpenCR caches the latest valid RC-100 data frame and detects Button 1/4 rising
   edges. It exposes wrapping 8-bit event sequence counters at control-table bytes
   24 and 25. DYNAMIXEL Slave reads already cover address 10–182. Button 1 also
-  clears any latched manual velocity before Nav2 takes over.
+  clears any latched manual velocity before the patrol controller takes over.
 - The OpenCR field at byte 52 indicates whether PATROL owns the wheels. While set,
   RC direction keys do not contribute velocity. On IDLE the existing manual
   direction mapping is active again.
@@ -33,7 +48,7 @@ Changes stored in `firmware/patches/`:
   `START` or `STOP` on `/patrol_command`. If Button 1 and Button 4 counters change
   in one poll, STOP wins.
 - The host node subscribes to transient-local `/patrol_state` and writes the
-  PATROL/IDLE ownership byte back to OpenCR.
+  FORWARD/TURN_RIGHT versus STOPPING/IDLE ownership byte back to OpenCR.
 
 Patch application script validates both exact upstream commits and supports
 re-running after patches are applied:
@@ -118,10 +133,10 @@ The controller policy is:
 
 - IDLE: preserve the official U/D/L/R, Button 5 clear, and Button 6 constant-speed
   behavior.
-- PATROL: Nav2 owns the wheels; firmware clears any previously latched manual
+- FORWARD/TURN_RIGHT: the odometry patrol controller owns the wheels; firmware clears any previously latched manual
   velocity and suppresses directional RC velocity contributions.
 - Button 4: request STOP immediately through the same patrol command state machine.
-- PATROL state is written back to OpenCR. STOPPING, IDLE, or ERROR relinquishes
+- FORWARD/TURN_RIGHT state is written back to OpenCR. STOPPING, IDLE, or ERROR relinquishes
   patrol ownership and restores manual RC movement.
 
 The code-level diff preserves the existing direction mapping and introduces the
@@ -160,8 +175,9 @@ ros2 launch turtlebot_patrol patrol_sim.launch.py enable_rc100_bridge:=true robo
 
 To send mock commands instead, use `ROS_DOMAIN_ID=42` in the terminal that sends
 the command. With the physical remote bridge enabled, press Button 1, observe the
-Gazebo robot run the four waypoint loop, then press Button 4 and observe Nav2
-cancel to IDLE. Watch the physical robot remain unaffected by simulator velocity.
+  Gazebo robot run the odometry loop, then press Button 4 and observe immediate
+  zero velocity and IDLE. Watch the physical robot remain unaffected by simulator
+  velocity.
 
 If the Pi has a non-default domain, pass that value as `robot_domain_id:=N`. Keep
 the simulation on a different ID. The Pi's ROS 2 processes must remain in the same
@@ -208,19 +224,20 @@ export LDS_MODEL=LDS-03
 ros2 launch turtlebot3_bringup robot.launch.py
 ```
 
-Navigation/patrol terminal; replace both paths with files for the actual mapped
-area, and confirm the waypoint YAML uses that map's `map` frame:
+Patrol terminal; the robot bringup must already publish `/odom` and consume
+`TwistStamped` on `/cmd_vel`:
 
 ```bash
 source /opt/ros/jazzy/setup.bash
 source ~/bellingham/install/setup.bash
 export TURTLEBOT3_MODEL=waffle_pi
-ros2 launch turtlebot_patrol patrol_robot.launch.py map:=/absolute/path/to/map.yaml waypoints_file:=/absolute/path/to/waypoints.yaml
+ros2 launch turtlebot_patrol patrol_robot.launch.py
 ```
 
-Start by verifying Nav2 localization and sensor topics, then mock START/STOP from a
-third terminal in the robot's domain. Only after this passes, test RC Button 1/4.
-Check STOP cancellation, `cmd_vel` zeros, `/odom`, `/scan`, and manual control.
+Check `/odom`, `/scan`, `/cmd_vel`, and the existing manual RC direction keys. The
+patrol launch does not start a second Nav2 or teleop velocity controller; do not run
+another active publisher on `/cmd_vel` at the same time. Verify mock START/STOP
+before pressing RC Button 1/4.
 
 The actual Pi map file, Waffle Pi Navigation2 tuning, hardware startup order,
 OpenCR firmware build, and physical tests are not available in this desktop
@@ -229,6 +246,7 @@ workspace. Phase 12 stays incomplete until these steps have been run on the Pi.
 ## Verification status
 
 - [x] TurtleBot3 node patch applies to official 2.3.6 source and compiles on desktop.
+- [x] Updated RC host patch recognizes FORWARD/TURN_RIGHT and compiles on pinned source.
 - [x] Pi overlay build script tested on desktop using an isolated temporary overlay.
 - [x] Simulation launch defaults to ROS domain 42, separate from assumed robot domain 0.
 - [x] Optional one-way bridge configuration names only `/patrol_command` and
@@ -236,6 +254,10 @@ workspace. Phase 12 stays incomplete until these steps have been run on the Pi.
 - [x] Built ROS 2 `domain_bridge` 0.5.0 from its official source and tested both
       configured directions locally: `/patrol_command` 0→42 and transient-local
       `/patrol_state` 42→0.
+- [x] Keyboard START/STOP and odometry patrol tested in Gazebo; one 4-side loop
+      completed and monitor reported `LOOP COUNT: 1`.
+- [x] STOP tested during both FORWARD and TURN_RIGHT; Ctrl+C sends zero velocity
+      and shuts down the patrol stack cleanly.
 - [ ] Domain bridge tested with actual Pi DDS discovery over the robot's LAN.
 - [ ] OpenCR firmware compiles using the OpenCR board package (currently blocked by missing i386 runtime).
 - [ ] Patched firmware flashed; OpenCR control bytes 24/25 and 52 verified.

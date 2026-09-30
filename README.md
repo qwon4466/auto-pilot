@@ -1,30 +1,14 @@
-# TurtleBot3 Waffle Pi Patrol
+# TurtleBot3 Waffle Pi 반복 순찰
 
-ROS 2 Jazzy package for repeating a configured Nav2 waypoint route on a TurtleBot3 Waffle Pi. RC-100 Button 1 requests START and Button 4 requests STOP. The existing RC direction-key mapping remains available while the robot is IDLE; firmware suppresses those manual velocity contributions while PATROL owns motion.
+ROS 2 Jazzy 프로젝트다. 공통 `patrol_controller`는 `/odom` 거리와 quaternion yaw를
+사용해 15cm 직진 후 우측 90도 회전을 반복한다. 데스크톱 Gazebo에서는 키보드
+`1`이 START, `4`가 STOP이고, 실물 Waffle Pi에서는 준비된 OpenCR/host 확장이
+RC-100 Button 1/4 이벤트를 같은 `/patrol_command`로 연결한다. 실제 OpenCR
+firmware는 아직 빌드·플래시·실기 검증이 필요하다.
 
-The mock command path and Gazebo simulation run on Ubuntu 24.04. Optional hardware input forwards only `/patrol_command` from the physical robot's ROS domain to an isolated simulation domain. The reverse bridge forwards only `/patrol_state` so the OpenCR can suppress manual wheel input during PATROL. Simulator `/cmd_vel` is never bridged to the physical robot's ROS domain.
+## Desktop quickstart
 
-## Current status
-
-Phases 1–8 are complete and recorded under `docs/`. Phase 9 source patches are prepared for the official OpenCR and TurtleBot3 2.3.6 repositories. The ROS package, simulation, tests, and domain-separated RC workflow are in progress. The OpenCR patch still requires compilation and flashing, and the host node patch requires an overlay build on the Raspberry Pi before the real RC-100 can be tested. GitHub remote setup and Pi deployment are tracked in Phase 11 and 12.
-
-Do not treat RC hardware integration or physical robot STOP behavior as validated until the patched firmware is compiled, flashed, and tested on the actual Waffle Pi.
-
-## Build and test on the desktop
-
-On a fresh Ubuntu 24.04 desktop with the ROS 2 Jazzy APT repository configured,
-install system dependencies with `tools/install_desktop_dependencies.sh`. Then
-the ROS package's Python dependencies are already included in that APT set. For
-standalone Python development only, install `requirements.txt` in a virtual
-environment:
-
-```bash
-python3 -m venv .venv
-.venv/bin/python -m pip install -r requirements.txt
-```
-
-The pip file does not and cannot install ROS 2, Nav2, Gazebo, TurtleBot3, colcon,
-or rosdep; use Ubuntu APT for those packages.
+실제 workspace 위치는 `~/bellingham`이다.
 
 ```bash
 cd ~/bellingham
@@ -32,99 +16,39 @@ source /opt/ros/jazzy/setup.bash
 rosdep check --from-paths src --ignore-src
 colcon build --symlink-install
 source install/setup.bash
-colcon test --packages-select turtlebot_patrol
-colcon test-result --verbose
+ros2 launch turtlebot_patrol demo.launch.py
 ```
 
-The desktop already has ROS 2 Jazzy, Nav2, TurtleBot3 simulation, Gazebo Sim 8, and RViz. Install `ros-jazzy-domain-bridge` only if using the physical RC-100 input path:
+한 launch에서 Gazebo, RViz, controller, keyboard node, monitor를 실행한다.
+launch 터미널에 포커스를 둔 채 `1`로 시작하고 `4`로 정지한다. 상세 설치,
+화면 조작, topic과 문제 해결은 [한국어 시뮬레이터 안내서](SIMULATOR_GUIDE_KO.md)를
+참조한다.
 
-```bash
-sudo apt install ros-jazzy-domain-bridge
-```
+ROS/Gazebo 등 시스템 의존성은 `tools/install_desktop_dependencies.sh`가 Ubuntu
+APT로 설치한다. `requirements.txt`는 pip 설치 가능한 Python 패키지만 열거하며
+ROS 패키지를 설치하지 않는다.
 
-## Run the Gazebo patrol
+## Patrol behavior
 
-One terminal:
+- IDLE에서 START를 받으면 `FORWARD`로 전환한다.
+- `/odom`으로 0.15m 이동량을 측정한 뒤 `TURN_RIGHT`에서 약 -π/2 yaw를 측정한다.
+- 네 번의 직진과 회전이 끝나면 loop count를 올리고 다음 loop를 시작한다.
+- STOP은 즉시 zero `TwistStamped`를 발행한 뒤 `STOPPING → IDLE`로 복귀한다.
+- 중복 START는 무시한다. odometry가 stale 되거나 motion safety timeout에 도달하면
+  ERROR로 가며 로봇 정지 명령을 낸다.
 
-```bash
-cd ~/bellingham
-source /opt/ros/jazzy/setup.bash
-source install/setup.bash
-export TURTLEBOT3_MODEL=waffle_pi
-ros2 launch turtlebot_patrol patrol_sim.launch.py
-```
+시뮬레이션은 ROS domain 42, 실물 TurtleBot은 기본 domain 0을 사용한다. 실제 RC를
+시뮬레이터에 연결하는 optional bridge는 `/patrol_command`와 `/patrol_state`만
+전달하며 `/cmd_vel`, `/odom`, `/scan`, `/tf`는 전달하지 않는다.
 
-The launch starts the Waffle Pi world, the official TurtleBot3 Navigation2 launch, the patrol controller, and the console monitor. The simulator uses ROS domain 42 by default. In a second terminal, send mock commands in that domain:
+## Verification and deployment
 
-```bash
-source /opt/ros/jazzy/setup.bash
-source ~/bellingham/install/setup.bash
-export ROS_DOMAIN_ID=42
-ros2 topic pub --once /patrol_command std_msgs/msg/String "{data: START}"
-ros2 topic pub --once /patrol_command std_msgs/msg/String "{data: STOP}"
-```
+현재 workspace에서 빌드와 테스트가 통과했다. 개발 PC Gazebo에서 키보드 시작/정지,
+0.15m 이동, 90도 회전, monitor, 4단계 loop count 및 재시작을 확인했다. RC host
+patch는 pinned TurtleBot3 2.3.6 source에서 컴파일했다. OpenCR firmware 빌드/플래시,
+Pi 배포, 실물 RC/manual-control 회귀시험은 남아 있다.
 
-To use a different route, pass an absolute YAML path:
-
-```bash
-ros2 launch turtlebot_patrol patrol_sim.launch.py waypoints_file:=/absolute/path/waypoints.yaml
-```
-
-The default route is a 0.6 m square in the stock Gazebo world. Real deployment coordinates must be measured in the actual map frame.
-
-If Gazebo's GTK plugins conflict with the VS Code Snap environment, start the launch with the inherited GTK variables cleared:
-
-```bash
-env -u GTK_PATH -u GTK_EXE_PREFIX -u GTK_MODULES \
-  -u GDK_PIXBUF_MODULEDIR -u GDK_PIXBUF_MODULE_FILE \
-  -u GTK_IM_MODULE_FILE -u GIO_MODULE_DIR \
-  ros2 launch turtlebot_patrol patrol_sim.launch.py
-```
-
-## Use the RC-100 connected to the physical robot
-
-The physical TurtleBot3 is in ROS domain 0 by default; the desktop simulation is in domain 42. The launch's optional bridge forwards `/patrol_command` from the robot domain to the simulator and `/patrol_state` back to the robot. It does not bridge velocity, odometry, scan, or TF topics.
-
-After applying and deploying the Phase 9 OpenCR and TurtleBot3 node patches, build the simulation on the desktop with the bridge enabled:
-
-```bash
-source /opt/ros/jazzy/setup.bash
-source ~/bellingham/install/setup.bash
-export TURTLEBOT3_MODEL=waffle_pi
-ros2 launch turtlebot_patrol patrol_sim.launch.py enable_rc100_bridge:=true robot_domain_id:=0 simulation_domain_id:=42
-```
-
-On the Raspberry Pi, keep the normal TurtleBot3 ROS graph in domain 0, install the patched `turtlebot3_node` overlay, and start normal bringup. The host node publishes RC commands in domain 0 and subscribes to the bridged patrol state. Do not start the PC simulation in domain 0: Nav2 velocity commands must remain isolated from the robot hardware.
-
-While the bridged simulator state is PATROL, the patched OpenCR ignores RC direction-key velocity contributions. Direction-key manual control remains enabled in IDLE. Button 4 is the intended stop control. This policy has not been validated on the physical robot yet.
-
-## Topics
-
-| Topic | Type | Purpose |
-| --- | --- | --- |
-| `/patrol_command` | `std_msgs/msg/String` | START, STOP, RESET |
-| `/patrol_state` | `std_msgs/msg/String` | IDLE, PATROL, STOPPING, ERROR |
-| `/patrol_cycle_count` | `std_msgs/msg/UInt32` | Number of successful complete waypoint loops |
-| `/cmd_vel` | `geometry_msgs/msg/TwistStamped` | Nav2 velocity command (simulation domain only during PC testing) |
-
-The monitor currently displays state and completed cycle count. Current pose and current/next waypoint dashboard fields are not implemented.
-
-## Source patches and deployment
-
-The exact upstream revisions and apply/build instructions are in `docs/phase9-12-controller-test.md`. Patches are stored under `firmware/patches/` and can be applied with:
-
-```bash
-tools/apply_phase9_patches.sh /path/to/OpenCR /path/to/turtlebot3-2.3.6
-```
-
-The script rejects source revisions that do not match the reviewed official commits. Phase 10–12 documentation covers manual-control policy, GitHub setup, and Raspberry Pi overlay deployment. No GitHub remote is configured yet.
-
-## Project records
-
-- `PROJECT_SUMMARY_AND_RUNBOOK.txt`: consolidated project status and user runbook
-- `docs/phase1-installation.md`: environment setup
-- `docs/phase2-package.md` through `docs/phase7-monitor.md`: ROS package and simulation milestones
-- `docs/phase8-opencr-rc100-analysis.md`: official source audit and RC transport findings
-- `docs/phase9-12-controller-test.md`: source patches, domain isolation, controller test, GitHub and Pi deployment steps
-- `tools/pi4_build_overlay.sh`: build a minimal Pi overlay with the patched TurtleBot3 host node
-- `tools/compile_opencr.sh`: compile the patched Waffle/Waffle Pi sketch without flashing
+- [Phase 9–12 controller 및 Raspberry Pi 절차](docs/phase9-12-controller-test.md)
+- [전체 진행 기록과 실행 요약](PROJECT_SUMMARY_AND_RUNBOOK.txt)
+- [OpenCR/host patch 적용 스크립트](tools/apply_phase9_patches.sh)
+- [실제 robot launch](src/turtlebot_patrol/launch/patrol_robot.launch.py)

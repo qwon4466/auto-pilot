@@ -8,7 +8,8 @@ class PatrolState(Enum):
     """States used by the patrol controller."""
 
     IDLE = auto()
-    PATROL = auto()
+    FORWARD = auto()
+    TURN_RIGHT = auto()
     STOPPING = auto()
     ERROR = auto()
 
@@ -18,6 +19,8 @@ class PatrolEvent(Enum):
 
     START = auto()
     STOP = auto()
+    DISTANCE_REACHED = auto()
+    TURN_REACHED = auto()
     TASK_CANCELLED = auto()
     TASK_FAILED = auto()
     RESET = auto()
@@ -53,13 +56,22 @@ class PatrolStateMachine:
         previous = self._state
 
         if event is PatrolEvent.START and self._state is PatrolState.IDLE:
-            self._state = PatrolState.PATROL
-        elif event is PatrolEvent.STOP and self._state is PatrolState.PATROL:
+            self._state = PatrolState.FORWARD
+        elif event is PatrolEvent.DISTANCE_REACHED and self._state is PatrolState.FORWARD:
+            self._state = PatrolState.TURN_RIGHT
+        elif event is PatrolEvent.TURN_REACHED and self._state is PatrolState.TURN_RIGHT:
+            self._state = PatrolState.FORWARD
+        elif event is PatrolEvent.STOP and self._state in (
+            PatrolState.FORWARD,
+            PatrolState.TURN_RIGHT,
+            PatrolState.ERROR,
+        ):
             self._state = PatrolState.STOPPING
         elif event is PatrolEvent.TASK_CANCELLED and self._state is PatrolState.STOPPING:
             self._state = PatrolState.IDLE
         elif event is PatrolEvent.TASK_FAILED and self._state in (
-            PatrolState.PATROL,
+            PatrolState.FORWARD,
+            PatrolState.TURN_RIGHT,
             PatrolState.STOPPING,
         ):
             self._state = PatrolState.ERROR

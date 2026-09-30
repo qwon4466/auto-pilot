@@ -15,6 +15,7 @@ setup(
         ('share/' + package_name, ['package.xml']),
         (os.path.join('share', package_name, 'launch'), glob('launch/*.launch.py')),
         (os.path.join('share', package_name, 'config'), glob('config/*.yaml')),
+        (os.path.join('share', package_name, 'rviz'), glob('rviz/*.rviz')),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
@@ -32,6 +33,7 @@ setup(
             'patrol_controller = turtlebot_patrol.patrol_controller:main',
             'patrol_monitor = turtlebot_patrol.patrol_monitor:main',
             'patrol_state_node = turtlebot_patrol.patrol_state_node:main',
+            'keyboard_control = turtlebot_patrol.keyboard_control:main',
         ],
     },
 )

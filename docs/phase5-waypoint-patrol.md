@@ -1,5 +1,9 @@
 # Phase 5: Nav2 waypoint 반복 순찰
 
+> Historical implementation note: the Nav2 waypoint approach described below was
+> replaced by the `/odom`-measured 0.15 m forward + 90° right-turn controller.
+> Current usage and validation live in [SIMULATOR_GUIDE_KO.md](../SIMULATOR_GUIDE_KO.md).
+
 ## 구현
 
 - `patrol_plan.py`가 YAML의 시작 위치와 비어 있지 않은 waypoint 목록을 불러오고 x/y/yaw의 유한 수치 여부를 검증한다.
