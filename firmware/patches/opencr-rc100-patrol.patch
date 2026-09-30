@@ -1,0 +1,224 @@
+diff --git a/arduino/opencr_arduino/opencr/libraries/turtlebot3_ros2/include/turtlebot3/turtlebot3_controller.h b/arduino/opencr_arduino/opencr/libraries/turtlebot3_ros2/include/turtlebot3/turtlebot3_controller.h
+index 8ba0df2..fafe629 100755
+--- a/arduino/opencr_arduino/opencr/libraries/turtlebot3_ros2/include/turtlebot3/turtlebot3_controller.h
++++ b/arduino/opencr_arduino/opencr/libraries/turtlebot3_ros2/include/turtlebot3/turtlebot3_controller.h
+@@ -33,9 +33,16 @@ class Turtlebot3Controller
+   bool init(float max_lin_vel, float max_ang_vel, uint8_t scale_lin_vel = 1, uint8_t scale_ang_vel = 1);
+ 
+   void getRCdata(float *get_cmd_vel);
++  uint16_t getRC100Data() const;
++  void clearManualVelocity(float *get_cmd_vel);
++  void setPatrolActive(bool active);
+ 
+  private:
+   RC100 rc100_;
++  uint16_t rc100_data_;
++  float rc100_linear_velocity_;
++  float rc100_angular_velocity_;
++  bool patrol_active_;
+ 
+   double const_cmd_vel_;
+ 
+diff --git a/arduino/opencr_arduino/opencr/libraries/turtlebot3_ros2/src/turtlebot3/turtlebot3.cpp b/arduino/opencr_arduino/opencr/libraries/turtlebot3_ros2/src/turtlebot3/turtlebot3.cpp
+index a1ae26d..6a37357 100644
+--- a/arduino/opencr_arduino/opencr/libraries/turtlebot3_ros2/src/turtlebot3/turtlebot3.cpp
++++ b/arduino/opencr_arduino/opencr/libraries/turtlebot3_ros2/src/turtlebot3/turtlebot3.cpp
+@@ -138,10 +138,14 @@ enum ControlTableItemAddr{
+ 
+   ADDR_USER_LED_1      = 20,
+   ADDR_USER_LED_2      = 21,
+-  ADDR_USER_LED_3      = 22,
+-  ADDR_USER_LED_4      = 23,
+-
+-  ADDR_BUTTON_1        = 26,
++  ADDR_USER_LED_3      = 22,
++  ADDR_USER_LED_4      = 23,
++
++  ADDR_RC100_BUTTON_1_EVENT_SEQUENCE = 24,
++  ADDR_RC100_BUTTON_4_EVENT_SEQUENCE = 25,
++  ADDR_PATROL_ACTIVE = 52,
++
++  ADDR_BUTTON_1        = 26,
+   ADDR_BUTTON_2        = 27,
+   ADDR_BUMPER_1        = 28,
+   ADDR_BUMPER_2        = 29,
+@@ -259,8 +263,11 @@ typedef struct ControlItemVariables{
+   bool is_connect_motors;
+   bool is_connect_manipulator;
+ 
+-  bool user_led[4];
+-  bool push_button[2];
++  bool user_led[4];
++  uint8_t rc100_button_1_event_sequence;
++  uint8_t rc100_button_4_event_sequence;
++  uint8_t patrol_active;
++  bool push_button[2];
+   bool bumper[2];
+ 
+   uint16_t illumination;
+@@ -402,10 +409,15 @@ void TurtleBot3Core::begin(const char* model_name)
+   dxl_slave.addControlItem(ADDR_HEARTBEAT, control_items.heart_beat);
+   // Items for GPIO
+   dxl_slave.addControlItem(ADDR_USER_LED_1, control_items.user_led[0]);
+-  dxl_slave.addControlItem(ADDR_USER_LED_2, control_items.user_led[1]);
+-  dxl_slave.addControlItem(ADDR_USER_LED_3, control_items.user_led[2]);
+-  dxl_slave.addControlItem(ADDR_USER_LED_4, control_items.user_led[3]);
+-  dxl_slave.addControlItem(ADDR_BUTTON_1, control_items.push_button[0]);
++  dxl_slave.addControlItem(ADDR_USER_LED_2, control_items.user_led[1]);
++  dxl_slave.addControlItem(ADDR_USER_LED_3, control_items.user_led[2]);
++  dxl_slave.addControlItem(ADDR_USER_LED_4, control_items.user_led[3]);
++  dxl_slave.addControlItem(
++    ADDR_RC100_BUTTON_1_EVENT_SEQUENCE, control_items.rc100_button_1_event_sequence);
++  dxl_slave.addControlItem(
++    ADDR_RC100_BUTTON_4_EVENT_SEQUENCE, control_items.rc100_button_4_event_sequence);
++  dxl_slave.addControlItem(ADDR_PATROL_ACTIVE, control_items.patrol_active);
++  dxl_slave.addControlItem(ADDR_BUTTON_1, control_items.push_button[0]);
+   dxl_slave.addControlItem(ADDR_BUTTON_2, control_items.push_button[1]);
+   dxl_slave.addControlItem(ADDR_BUMPER_1, control_items.bumper[0]);
+   dxl_slave.addControlItem(ADDR_BUMPER_2, control_items.bumper[1]);
+@@ -594,9 +606,27 @@ void TurtleBot3Core::run()
+   // Run buzzer if there is still melody to play.
+   sensors.onMelody();
+ 
+-  /* For getting command from rc100 */
+-  // Receive data from RC100 
+-  controllers.getRCdata(goal_velocity_from_rc100);
++  /* For getting command from rc100 */
++  // Receive data from RC100
++  controllers.setPatrolActive(control_items.patrol_active != 0);
++  if (control_items.patrol_active) {
++    goal_velocity_from_rc100[VelocityType::LINEAR] = 0.0f;
++    goal_velocity_from_rc100[VelocityType::ANGULAR] = 0.0f;
++  }
++  controllers.getRCdata(goal_velocity_from_rc100);
++  {
++    static uint16_t previous_rc100_data = 0;
++    const uint16_t rc100_data = controllers.getRC100Data();
++
++    if ((rc100_data & RC100_BTN_1) && !(previous_rc100_data & RC100_BTN_1)) {
++      control_items.rc100_button_1_event_sequence++;
++      controllers.clearManualVelocity(goal_velocity_from_rc100);
++    }
++    if ((rc100_data & RC100_BTN_4) && !(previous_rc100_data & RC100_BTN_4)) {
++      control_items.rc100_button_4_event_sequence++;
++    }
++    previous_rc100_data = rc100_data;
++  }
+ 
+   /* For processing DYNAMIXEL slave function */
+   // Update control table of OpenCR to communicate with ROS2 node
+@@ -1056,4 +1086,4 @@ void test_motors_with_buttons(uint8_t buttons)
+       move[VelocityType::ANGULAR] = false;
+     }
+   }
+-}
+\ No newline at end of file
++}
+diff --git a/arduino/opencr_arduino/opencr/libraries/turtlebot3_ros2/src/turtlebot3/turtlebot3_controller.cpp b/arduino/opencr_arduino/opencr/libraries/turtlebot3_ros2/src/turtlebot3/turtlebot3_controller.cpp
+index 376653d..ec518ee 100755
+--- a/arduino/opencr_arduino/opencr/libraries/turtlebot3_ros2/src/turtlebot3/turtlebot3_controller.cpp
++++ b/arduino/opencr_arduino/opencr/libraries/turtlebot3_ros2/src/turtlebot3/turtlebot3_controller.cpp
+@@ -17,6 +17,10 @@
+ #include "../../include/turtlebot3/turtlebot3_controller.h"
+ 
+ Turtlebot3Controller::Turtlebot3Controller()
++ : rc100_data_(0),
++  rc100_linear_velocity_(0.0f),
++  rc100_angular_velocity_(0.0f),
++  patrol_active_(false)
+ {
+   const_cmd_vel_ = CONST_VEL;
+ }
+@@ -42,49 +46,73 @@ bool Turtlebot3Controller::init(float max_lin_vel, float max_ang_vel, uint8_t sc
+ void Turtlebot3Controller::getRCdata(float *get_cmd_vel)
+ {
+   uint16_t received_data = 0;
+-
+-  static float lin_x = 0.0, ang_z = 0.0;
+   
+   if (rc100_.available())
+   {
+     received_data = rc100_.readData();
++    rc100_data_ = received_data;
+ 
+-    if (received_data & RC100_BTN_U)
++    if (patrol_active_)
++    {
++      // Navigation2 owns the wheels during patrol; keep RC direction keys idle.
++    }
++    else if (received_data & RC100_BTN_U)
+     {
+-      lin_x += VELOCITY_LINEAR_X * scale_lin_vel_;
++      rc100_linear_velocity_ += VELOCITY_LINEAR_X * scale_lin_vel_;
+     }
+     else if (received_data & RC100_BTN_D)
+     {
+-      lin_x -= VELOCITY_LINEAR_X * scale_lin_vel_;
++      rc100_linear_velocity_ -= VELOCITY_LINEAR_X * scale_lin_vel_;
+     }
+     else if (received_data & RC100_BTN_L)
+     {
+-      ang_z += VELOCITY_ANGULAR_Z * scale_ang_vel_;
++      rc100_angular_velocity_ += VELOCITY_ANGULAR_Z * scale_ang_vel_;
+     }
+     else if (received_data & RC100_BTN_R)
+     {
+-      ang_z -= VELOCITY_ANGULAR_Z * scale_ang_vel_;
++      rc100_angular_velocity_ -= VELOCITY_ANGULAR_Z * scale_ang_vel_;
+     }
+     else if (received_data & RC100_BTN_6)
+     {
+-      lin_x = const_cmd_vel_;
+-      ang_z = 0.0;
++      rc100_linear_velocity_ = const_cmd_vel_;
++      rc100_angular_velocity_ = 0.0;
+     }
+     else if (received_data & RC100_BTN_5)
+     {
+-      lin_x = 0.0;
+-      ang_z = 0.0;
++      rc100_linear_velocity_ = 0.0;
++      rc100_angular_velocity_ = 0.0;
+     }
+     else
+     {
+-      lin_x = lin_x;
+-      ang_z = ang_z;
++      // Keep the existing latched manual velocity until a new RC command arrives.
+     }
+ 
+-    lin_x = constrain(lin_x, min_lin_vel_, max_lin_vel_);
+-    ang_z = constrain(ang_z, min_ang_vel_, max_ang_vel_);
++    rc100_linear_velocity_ = constrain(rc100_linear_velocity_, min_lin_vel_, max_lin_vel_);
++    rc100_angular_velocity_ = constrain(rc100_angular_velocity_, min_ang_vel_, max_ang_vel_);
++
++    get_cmd_vel[0] = patrol_active_ ? 0.0f : rc100_linear_velocity_;
++    get_cmd_vel[1] = patrol_active_ ? 0.0f : rc100_angular_velocity_;
++  }
++}
++
++uint16_t Turtlebot3Controller::getRC100Data() const
++{
++  return rc100_data_;
++}
+ 
+-    get_cmd_vel[0] = lin_x;
+-    get_cmd_vel[1] = ang_z;
++void Turtlebot3Controller::clearManualVelocity(float *get_cmd_vel)
++{
++  rc100_linear_velocity_ = 0.0f;
++  rc100_angular_velocity_ = 0.0f;
++  get_cmd_vel[0] = 0.0f;
++  get_cmd_vel[1] = 0.0f;
++}
++
++void Turtlebot3Controller::setPatrolActive(bool active)
++{
++  patrol_active_ = active;
++  if (active) {
++    rc100_linear_velocity_ = 0.0f;
++    rc100_angular_velocity_ = 0.0f;
+   }
+-}
+\ No newline at end of file
++}

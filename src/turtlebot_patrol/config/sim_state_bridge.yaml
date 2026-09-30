@@ -1,0 +1,12 @@
+name: sim_state_to_rc100_bridge
+from_domain: 42
+to_domain: 0
+
+topics:
+  /patrol_state:
+    type: std_msgs/msg/String
+    qos:
+      reliability: reliable
+      durability: transient_local
+      history: keep_last
+      depth: 1

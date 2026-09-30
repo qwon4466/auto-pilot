@@ -1,0 +1,12 @@
+name: rc100_command_to_sim_bridge
+from_domain: 0
+to_domain: 42
+
+topics:
+  /patrol_command:
+    type: std_msgs/msg/String
+    qos:
+      reliability: reliable
+      durability: volatile
+      history: keep_last
+      depth: 10

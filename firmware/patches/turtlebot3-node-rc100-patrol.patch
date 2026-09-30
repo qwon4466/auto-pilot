@@ -1,0 +1,134 @@
+diff --git a/turtlebot3_node/include/turtlebot3_node/control_table.hpp b/turtlebot3_node/include/turtlebot3_node/control_table.hpp
+index 35e7e42..a6a4dcd 100644
+--- a/turtlebot3_node/include/turtlebot3_node/control_table.hpp
++++ b/turtlebot3_node/include/turtlebot3_node/control_table.hpp
+@@ -56,6 +56,10 @@ typedef struct
+   ControlItem external_led_3 = {22, RAM, 1, READ_WRITE};
+   ControlItem external_led_4 = {23, RAM, 1, READ_WRITE};
+ 
++  ControlItem rc100_button_1_event_sequence = {24, RAM, 1, READ};
++  ControlItem rc100_button_4_event_sequence = {25, RAM, 1, READ};
++  ControlItem patrol_active = {52, RAM, 1, READ_WRITE};
++
+   ControlItem button_1 = {26, RAM, 1, READ};
+   ControlItem button_2 = {27, RAM, 1, READ};
+ 
+diff --git a/turtlebot3_node/include/turtlebot3_node/turtlebot3.hpp b/turtlebot3_node/include/turtlebot3_node/turtlebot3.hpp
+index fdc70e4..343f2a2 100644
+--- a/turtlebot3_node/include/turtlebot3_node/turtlebot3.hpp
++++ b/turtlebot3_node/include/turtlebot3_node/turtlebot3.hpp
+@@ -34,6 +34,7 @@
+ #include <sensor_msgs/msg/battery_state.hpp>
+ #include <sensor_msgs/msg/imu.hpp>
+ #include <sensor_msgs/msg/joint_state.hpp>
++#include <std_msgs/msg/string.hpp>
+ #include <turtlebot3_msgs/msg/sensor_state.hpp>
+ 
+ #include "turtlebot3_node/control_table.hpp"
+@@ -89,6 +90,8 @@ private:
+ 
+   void publish_timer(const std::chrono::milliseconds timeout);
+   void heartbeat_timer(const std::chrono::milliseconds timeout);
++  void publish_rc100_command();
++  void patrol_state_callback(const std_msgs::msg::String::SharedPtr msg);
+ 
+   void cmd_vel_callback();
+   void parameter_event_callback();
+@@ -107,6 +110,11 @@ private:
+ 
+   rclcpp::TimerBase::SharedPtr publish_timer_;
+   rclcpp::TimerBase::SharedPtr heartbeat_timer_;
++  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr rc100_command_pub_;
++  rclcpp::Subscription<std_msgs::msg::String>::SharedPtr patrol_state_sub_;
++  bool rc100_sequences_initialized_{false};
++  uint8_t previous_rc100_button_1_sequence_{0};
++  uint8_t previous_rc100_button_4_sequence_{0};
+ 
+   std::unique_ptr<TwistSubscriber> cmd_vel_sub_;
+ 
+diff --git a/turtlebot3_node/src/turtlebot3.cpp b/turtlebot3_node/src/turtlebot3.cpp
+index 55bb2e3..5f5d76c 100644
+--- a/turtlebot3_node/src/turtlebot3.cpp
++++ b/turtlebot3_node/src/turtlebot3.cpp
+@@ -16,6 +16,7 @@
+ 
+ #include "turtlebot3_node/turtlebot3.hpp"
+ 
++#include <functional>
+ #include <memory>
+ #include <string>
+ 
+@@ -222,6 +223,13 @@ void TurtleBot3::run()
+ {
+   RCLCPP_INFO(this->get_logger(), "Run!");
+ 
++  rc100_command_pub_ = this->create_publisher<std_msgs::msg::String>(
++    "/patrol_command", rclcpp::QoS(rclcpp::KeepLast(10)));
++  patrol_state_sub_ = this->create_subscription<std_msgs::msg::String>(
++    "/patrol_state",
++    rclcpp::QoS(rclcpp::KeepLast(1)).transient_local(),
++    std::bind(&TurtleBot3::patrol_state_callback, this, std::placeholders::_1));
++
+   publish_timer(std::chrono::milliseconds(50));
+   heartbeat_timer(std::chrono::milliseconds(100));
+ 
+@@ -239,6 +247,8 @@ void TurtleBot3::publish_timer(const std::chrono::milliseconds timeout)
+ 
+       dxl_sdk_wrapper_->read_data_set();
+ 
++      publish_rc100_command();
++
+       for (const auto & sensor : sensors_) {
+         sensor->publish(now, dxl_sdk_wrapper_);
+       }
+@@ -246,6 +256,50 @@ void TurtleBot3::publish_timer(const std::chrono::milliseconds timeout)
+   );
+ }
+ 
++void TurtleBot3::publish_rc100_command()
++{
++  const uint8_t button_1_sequence = dxl_sdk_wrapper_->get_data_from_device<uint8_t>(
++    extern_control_table.rc100_button_1_event_sequence.addr,
++    extern_control_table.rc100_button_1_event_sequence.length);
++  const uint8_t button_4_sequence = dxl_sdk_wrapper_->get_data_from_device<uint8_t>(
++    extern_control_table.rc100_button_4_event_sequence.addr,
++    extern_control_table.rc100_button_4_event_sequence.length);
++
++  if (!rc100_sequences_initialized_) {
++    previous_rc100_button_1_sequence_ = button_1_sequence;
++    previous_rc100_button_4_sequence_ = button_4_sequence;
++    rc100_sequences_initialized_ = true;
++    return;
++  }
++
++  const bool stop_requested = button_4_sequence != previous_rc100_button_4_sequence_;
++  const bool start_requested = button_1_sequence != previous_rc100_button_1_sequence_;
++  previous_rc100_button_1_sequence_ = button_1_sequence;
++  previous_rc100_button_4_sequence_ = button_4_sequence;
++
++  if (stop_requested || start_requested) {
++    std_msgs::msg::String command;
++    command.data = stop_requested ? "STOP" : "START";
++    rc100_command_pub_->publish(command);
++    RCLCPP_INFO(this->get_logger(), "RC-100 patrol command: %s", command.data.c_str());
++  }
++}
++
++void TurtleBot3::patrol_state_callback(const std_msgs::msg::String::SharedPtr msg)
++{
++  uint8_t patrol_active = msg->data == "PATROL" ? 1 : 0;
++  std::string sdk_msg;
++  if (!dxl_sdk_wrapper_->set_data_to_device(
++      extern_control_table.patrol_active.addr,
++      extern_control_table.patrol_active.length,
++      &patrol_active,
++      &sdk_msg))
++  {
++    RCLCPP_WARN(
++      this->get_logger(), "Failed to update OpenCR patrol mode: %s", sdk_msg.c_str());
++  }
++}
++
+ void TurtleBot3::heartbeat_timer(const std::chrono::milliseconds timeout)
+ {
+   heartbeat_timer_ = this->create_wall_timer(
