@@ -12,7 +12,13 @@ def generate_launch_description():
             executable='patrol_controller',
             name='patrol_controller',
             output='screen',
-            parameters=[{'use_sim_time': False}],
+            parameters=[{
+                'use_sim_time': False,
+                'target_distance': 1.0,
+                'linear_speed': 0.05,
+                'angular_speed': 0.4,
+                'turn_slow_speed': 0.10,
+            }],
         ),
         Node(
             package='turtlebot_patrol',

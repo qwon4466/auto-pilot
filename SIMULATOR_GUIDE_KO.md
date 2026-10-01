@@ -229,6 +229,12 @@ ROS_DOMAIN_ID=42 ros2 topic pub --once /patrol_command std_msgs/msg/String "{dat
 20° 이하이면 낮은 속도를 사용한다. `patrol_monitor`는 설정된 상한과 현재 발행
 속도를 함께 표시한다.
 
+`patrol_controller`는 Gazebo와 실물에서 공유된다. 시뮬레이터용 빠른 기본값은
+`patrol_sim.launch.py`에서 사용하지만, 실물 실행 파일
+`launch/patrol_robot.launch.py`는 안전을 위해 `linear_speed=0.05`,
+`angular_speed=0.4`, `turn_slow_speed=0.10`을 따로 지정한다. 실물 launch도
+1.0m와 90°를 목표로 하지만 실제 로봇에서는 RC 수동주행과 저속 시험을 먼저 한다.
+
 직진거리는 `target_distance`에서 조절하며 단위는 meter다. 예를 들어 `0.5`는
 50cm, `1.0`은 1m, `1.5`는 1.5m다. 이번 프로젝트의 기본 요구 경로를 유지하려면
 `1.0`으로 둔다.

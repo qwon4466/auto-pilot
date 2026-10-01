@@ -51,6 +51,9 @@ ROS 패키지를 설치하지 않는다.
 patch는 pinned TurtleBot3 2.3.6 source에서 컴파일했다. OpenCR firmware 빌드/플래시,
 Pi 배포, 실물 RC/manual-control 회귀시험은 남아 있다.
 
+실물용 `patrol_robot.launch.py`는 아직 현장 검증 전이므로 속도를 기존 수준인
+0.05m/s 및 0.4rad/s로 제한한다. 시뮬레이터 설정은 Gazebo launch에 적용된다.
+
 - [Phase 9–12 controller 및 Raspberry Pi 절차](docs/phase9-12-controller-test.md)
 - [전체 진행 기록과 실행 요약](PROJECT_SUMMARY_AND_RUNBOOK.txt)
 - [OpenCR/host patch 적용 스크립트](tools/apply_phase9_patches.sh)
