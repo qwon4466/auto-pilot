@@ -3,8 +3,8 @@
 이 시뮬레이터는 실제 TurtleBot3 Waffle Pi와 RC-100 없이 Ubuntu 데스크톱에서
 반복 순찰 제어를 확인하기 위한 개발 환경이다. Gazebo의 Waffle Pi가 `/odom`을
 내고, 공통 `patrol_controller`가 `/cmd_vel`을 발행한다. 키보드 `1`은 시작,
-`4`는 정지다. 기본 동작은 `/odom`에서 측정한 약 15cm 전진과 quaternion yaw로
-계산한 오른쪽 90도 회전을 네 번 이어 작은 사각 경로 한 바퀴를 만든다.
+`4`는 정지다. 기본 동작은 `/odom`에서 측정한 1.000m 전진과 quaternion yaw로
+계산한 오른쪽 90도 회전을 네 번 이어 약 1m × 1m 사각 경로 한 바퀴를 만든다.
 
 ## 1. 준비 환경과 설치 확인
 
@@ -110,7 +110,7 @@ launch를 실행한 **터미널에 포커스를 둔 상태로** 키를 누른다
 [INPUT] KEY 1
 [PATROL] START REQUEST
 [PATROL] START: IDLE -> FORWARD
-[MOTION] FORWARD #1: target 0.150 m
+[MOTION] FORWARD #1: target 1.000 m
 ```
 
 STOP 시에는 아래와 같은 상태 로그가 나온다.
@@ -134,7 +134,7 @@ STOP 시에는 아래와 같은 상태 로그가 나온다.
 - 화면 아래 World Control의 Play/Pause 버튼으로 시뮬레이션을 일시정지하거나
   다시 진행한다. 일시정지 중에는 Gazebo 시간이 멈춘다. 재개하면 `/odom` 기반
   제어도 이어진다.
-- 로봇이 15cm 정도 직진한 다음 우측으로 90도 회전하는지 확인한다. 네 번의
+- 로봇이 1m 직진한 다음 우측으로 90도 회전하는지 확인한다. 네 번의
   전진·회전 후 원점 근처를 지나며 다음 loop를 계속 시작한다.
 
 마우스 조작 및 Play/Pause 위치는 Gazebo Harmonic GUI에 따르며, 화면 배치가
@@ -169,7 +169,7 @@ FORWARD/TURN_RIGHT state, input device, last command, 현재/목표 이동거리
 | `/patrol_command` | `std_msgs/msg/String` | `START`, `STOP`, `RESET` 명령 |
 | `/patrol_state` | `std_msgs/msg/String` | `IDLE`, `FORWARD`, `TURN_RIGHT`, `STOPPING`, `ERROR` |
 | `/patrol_telemetry` | `std_msgs/msg/String` | 현재 상태·거리·각도·loop 등의 JSON 요약 |
-| `/patrol_cycle_count` | `std_msgs/msg/UInt32` | 완성된 15cm × 15cm 사각 loop 수 |
+| `/patrol_cycle_count` | `std_msgs/msg/UInt32` | 완성된 1m × 1m 사각 loop 수 |
 | `/patrol_path` | `nav_msgs/msg/Path` | 현재 순찰에서 기록한 odometry 궤적 |
 
 토픽을 별도 터미널에서 볼 경우 시뮬레이션 domain을 설정한다.
@@ -204,18 +204,42 @@ ROS_DOMAIN_ID=42 ros2 topic pub --once /patrol_command std_msgs/msg/String "{dat
 ROS_DOMAIN_ID=42 ros2 topic pub --once /patrol_command std_msgs/msg/String "{data: STOP}"
 ```
 
-## 7. 동작 설정과 허용오차
+## 7. 순찰 거리·속도·회전 설정
 
-기본 목표는 0.150m 전진, 우측 π/2 rad 회전이다. 기본 속도는 직선 0.05m/s,
-회전 0.4rad/s이며, 움직임 완료 여부를 시간으로 환산하지 않는다. 완료 판단은
-`/odom` 거리와 quaternion에서 계산한 yaw 차이로 한다. 기본 완료 허용오차는
-전진 0.005m, 회전 약 0.035rad다. `odom_timeout_sec`와 `phase_timeout_sec`은
-센서 고장·움직임 정체에 대한 안전 timeout이며 목표 이동량을 정하는 데 사용하지
-않는다. Gazebo를 Pause하면 simulation clock도 멈추므로 timeout도 정지한다.
+제어 설정은 `src/turtlebot_patrol/turtlebot_patrol/patrol_controller.py`의
+`PatrolController.__init__()`에 ROS parameter 기본값으로 모여 있다. 변경 후에는
+`colcon build --symlink-install`하고 workspace를 다시 source한다.
 
-설정 값을 바꾸려면 controller parameter override를 launch에 전달하도록
-`patrol_sim.launch.py`를 수정하거나 ROS parameter service를 사용할 수 있다.
-실제 Pi에서 값을 변경하기 전에 저속의 안전한 시험 공간에서 확인한다.
+| 설정 | 변경 전 | 현재 값 | 의미 |
+| --- | ---: | ---: | --- |
+| `target_distance` | `0.15` m | `1.0` m | 각 직진 구간 목표거리 |
+| `linear_speed` | `0.05` m/s | `0.15` m/s | 직진 속도, 3배 증가 |
+| `target_turn` | `math.pi / 2.0` rad | `math.pi / 2.0` rad | 우회전 목표, 정확히 90° |
+| `angular_speed` | `0.4` rad/s | `0.8` rad/s | 회전 빠른 구간 및 yaw 보정의 최대값 |
+| `turn_slow_speed` | 해당 없음 | `0.12` rad/s | 남은 각도가 20° 이하일 때의 회전 속도 |
+| `turn_slowdown_angle` | 해당 없음 | `math.radians(20.0)` | 저속 회전을 시작하는 잔여 각도 |
+| `distance_tolerance` | `0.005` m | `0.005` m | 직진 완료 허용오차, 5mm |
+| `angle_tolerance` | `0.035` rad (2.0°) | `math.radians(0.5)` | 회전 완료 허용오차, ±0.5° |
+
+직진 속도를 조절하려면 같은 파일의 `linear_speed` 값을 바꾼다. 숫자가 커지면
+직진이 빨라진다. 속도 명령은 `_step_forward()`가 계산하고
+`_publish_velocity()`가 `/cmd_vel`에 발행한다. 예를 들어 `0.20`은 0.20m/s다.
+회전 속도는 `angular_speed`를 조절한다. 목표에 다가갈 때 부드럽게 감속하도록
+`turn_slow_speed`도 함께 설정할 수 있다. `_step_turn_right()`는 남은 각도가
+20° 이하이면 낮은 속도를 사용한다. `patrol_monitor`는 설정된 상한과 현재 발행
+속도를 함께 표시한다.
+
+직진거리는 `target_distance`에서 조절하며 단위는 meter다. 예를 들어 `0.5`는
+50cm, `1.0`은 1m, `1.5`는 1.5m다. 이번 프로젝트의 기본 요구 경로를 유지하려면
+`1.0`으로 둔다.
+
+목표 회전은 `target_turn = math.pi / 2.0`이며 우회전 부호는
+`_step_turn_right()`에서 음의 각속도를 발행하는 현재 ROS 좌표계 구현으로
+정해진다. 목표값은 90°로 유지한다. 완료 판정은 `/odom` quaternion yaw에서 얻은
+회전량으로 하며 시간 기반 주행이나 회전은 하지 않는다. `angle_tolerance`는
+수치 오차 허용용 ±0.5°이고, 목표 회전 자체를 줄이지 않는다. `odom_timeout_sec`와
+`phase_timeout_sec`은 센서·정체 안전 제한만 수행한다. Gazebo pause 중에는
+simulation clock과 timeout이 함께 멈춘다.
 
 ## 8. 문제 해결
 
@@ -241,9 +265,10 @@ ROS_DOMAIN_ID=42 ros2 topic pub --once /patrol_command std_msgs/msg/String "{dat
 
 ## 9. 현재 검증 범위
 
-개발 PC Gazebo에서 키보드 `1`/`4`, 0.15m odometry 이동, 약 90도 yaw 회전,
-FORWARD와 TURN_RIGHT 중 STOP, 중복 START 무시, restart, 네 변 후 LOOP 1 및
-Monitor 값을 확인했다. RC-100 host patch는 pinned TurtleBot3 source에서 빌드했다.
+개발 PC Gazebo에서 키보드 `1`/`4`, 1.0m odometry 이동(실측 0.995–1.000m),
+90도 yaw 회전(실측 89.5–89.8°), FORWARD와 TURN_RIGHT 중 STOP, 중복 START 무시,
+restart, 연속 LOOP 1·2 및 Monitor 값 갱신을 확인했다. ROS 테스트 20개 통과,
+1개 skip이다. RC-100 host patch는 pinned TurtleBot3 source에서 빌드했다.
 
 실제 OpenCR firmware compile/flash, Pi에서의 bringup, RC Button 1/4 및 방향키
 manual-control 회귀시험은 아직 실제 로봇에서 검증되지 않았다. 따라서 이 안내는

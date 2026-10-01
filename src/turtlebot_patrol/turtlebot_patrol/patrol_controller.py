@@ -1,4 +1,4 @@
-"""Odometry-controlled 15 cm forward and 90 degree right-turn patrol."""
+"""Odometry-controlled 1 m forward and 90 degree right-turn patrol."""
 
 import json
 import math
@@ -41,13 +41,15 @@ class PatrolController(Node):
         self.declare_parameter('telemetry_topic', '/patrol_telemetry')
         self.declare_parameter('input_source_topic', '/patrol_input_source')
         self.declare_parameter('path_topic', '/patrol_path')
-        self.declare_parameter('target_distance', 0.15)
+        self.declare_parameter('target_distance', 1.0)
         self.declare_parameter('target_turn', math.pi / 2.0)
-        self.declare_parameter('linear_speed', 0.05)
-        self.declare_parameter('angular_speed', 0.4)
+        self.declare_parameter('linear_speed', 0.15)
+        self.declare_parameter('angular_speed', 0.8)
+        self.declare_parameter('turn_slow_speed', 0.12)
+        self.declare_parameter('turn_slowdown_angle', math.radians(20.0))
         self.declare_parameter('heading_gain', 1.5)
         self.declare_parameter('distance_tolerance', 0.005)
-        self.declare_parameter('angle_tolerance', 0.035)
+        self.declare_parameter('angle_tolerance', math.radians(0.5))
         self.declare_parameter('odom_timeout_sec', 2.0)
         self.declare_parameter('phase_timeout_sec', 30.0)
 
@@ -67,6 +69,8 @@ class PatrolController(Node):
         self._turn_start_yaw = 0.0
         self._input_device = 'UNKNOWN'
         self._last_command = 'NONE'
+        self._commanded_linear_speed = 0.0
+        self._commanded_angular_speed = 0.0
         self._path_poses: list[PoseStamped] = []
 
         self._state_pub = self.create_publisher(
@@ -96,7 +100,7 @@ class PatrolController(Node):
         self._publish_cycle_count()
         self._publish_telemetry()
         self.get_logger().info(
-            'Ready: odometry-controlled 0.150 m forward, then 90 deg right; '
+            'Ready: odometry-controlled 1.000 m forward, then 90 deg right; '
             'four sides per loop')
 
     @staticmethod
@@ -148,7 +152,10 @@ class PatrolController(Node):
         transition = self._machine.handle(PatrolEvent.START)
         self.get_logger().info(
             f'[PATROL] START: {transition.previous.name} -> {transition.current.name}')
-        self.get_logger().info('[MOTION] FORWARD #1: target 0.150 m')
+        target_distance = float(self.get_parameter('target_distance').value)
+        self.get_logger().info(
+            f'[MOTION] FORWARD #1: target '
+            f'{target_distance:.3f} m')
         self._publish_state()
         self._publish_cycle_count()
         self._publish_path()
@@ -264,13 +271,20 @@ class PatrolController(Node):
             self._phase_number = self._turn_count % 4 + 1
             self._machine.handle(PatrolEvent.TURN_REACHED)
             self._set_forward_origin()
+            target_distance = float(self.get_parameter('target_distance').value)
             self.get_logger().info(
                 f'[MOTION] TURN_RIGHT complete: {math.degrees(completed_turn):.1f} deg; '
-                f'FORWARD #{self._phase_number} target 0.150 m')
+                f'FORWARD #{self._phase_number} target '
+                f'{target_distance:.3f} m')
             self._publish_state()
             self._publish_telemetry()
             return
-        self._publish_velocity(0.0, -float(self.get_parameter('angular_speed').value))
+        remaining = max(0.0, target - self._current_turn)
+        slowdown_angle = float(self.get_parameter('turn_slowdown_angle').value)
+        fast_speed = float(self.get_parameter('angular_speed').value)
+        slow_speed = float(self.get_parameter('turn_slow_speed').value)
+        turn_speed = slow_speed if remaining <= slowdown_angle else fast_speed
+        self._publish_velocity(0.0, -turn_speed)
 
     def _set_forward_origin(self) -> None:
         assert self._x is not None and self._y is not None and self._yaw is not None
@@ -299,6 +313,8 @@ class PatrolController(Node):
         self._publish_telemetry()
 
     def _publish_velocity(self, linear: float, angular: float) -> None:
+        self._commanded_linear_speed = linear
+        self._commanded_angular_speed = angular
         message = TwistStamped()
         message.header.stamp = self.get_clock().now().to_msg()
         message.header.frame_id = 'base_link'
@@ -348,6 +364,11 @@ class PatrolController(Node):
             'current_distance': self._current_distance,
             'target_turn': float(self.get_parameter('target_turn').value),
             'current_turn': self._current_turn,
+            'linear_speed': float(self.get_parameter('linear_speed').value),
+            'angular_speed': float(self.get_parameter('angular_speed').value),
+            'turn_slow_speed': float(self.get_parameter('turn_slow_speed').value),
+            'commanded_linear_speed': self._commanded_linear_speed,
+            'commanded_angular_speed': self._commanded_angular_speed,
             'phase_number': self._phase_number,
             'loop_count': self._cycle_count,
             'x': self._x,

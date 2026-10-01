@@ -87,10 +87,15 @@ class PatrolMonitor(Node):
         command = str(data.get('last_command', 'NONE'))
         phase = str(data.get('state', self._state))
         phase_number = int(data.get('phase_number', 0))
-        target_distance = float(data.get('target_distance', 0.15))
+        target_distance = float(data.get('target_distance', 1.0))
         current_distance = float(data.get('current_distance', 0.0))
         target_turn = math.degrees(float(data.get('target_turn', math.pi / 2.0)))
         current_turn = math.degrees(float(data.get('current_turn', 0.0)))
+        linear_speed = float(data.get('linear_speed', 0.15))
+        angular_speed = float(data.get('angular_speed', 0.8))
+        turn_slow_speed = float(data.get('turn_slow_speed', 0.12))
+        commanded_linear = float(data.get('commanded_linear_speed', 0.0))
+        commanded_angular = float(data.get('commanded_angular_speed', 0.0))
         x, y, yaw = self._odom
         pose_lines = (
             f'X             : {x:.3f}\nY             : {y:.3f}\n'
@@ -106,9 +111,16 @@ class PatrolMonitor(Node):
             f'STATE         : {phase}\n'
             f'INPUT DEVICE  : {source}\n'
             f'LAST COMMAND  : {command}\n'
-            f'FORWARD       : #{phase_number} | {current_distance:.3f} / '
-            f'{target_distance:.3f} m\n'
-            f'TURN RIGHT    : {current_turn:.1f} / {target_turn:.1f} deg\n'
+            f'TARGET DIST   : {target_distance:.3f} m\n'
+            f'CURRENT DIST  : {current_distance:.3f} m\n'
+            f'TARGET TURN   : {target_turn:.1f} deg\n'
+            f'CURRENT TURN  : {current_turn:.1f} deg\n'
+            f'LINEAR SPEED  : {linear_speed:.2f} m/s '
+            f'(command {commanded_linear:.2f})\n'
+            f'ANGULAR SPEED : {angular_speed:.2f} rad/s max, '
+            f'{turn_slow_speed:.2f} slow '
+            f'(command {commanded_angular:.2f})\n'
+            f'PHASE         : #{phase_number}\n'
             f'LOOP COUNT    : {self._cycle_count}\n'
             'ODOM\n'
             f'{pose_lines}\n'

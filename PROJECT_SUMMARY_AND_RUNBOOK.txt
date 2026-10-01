@@ -1,5 +1,5 @@
 TurtleBot3 Waffle Pi odometry 반복 순찰: 진행 요약 및 실행 안내
-작성일: 2026-09-30
+작성일: 2026-10-01
 작업 폴더: /home/hkl9292/bellingham
 
 ======================================================================
@@ -7,7 +7,7 @@ TurtleBot3 Waffle Pi odometry 반복 순찰: 진행 요약 및 실행 안내
 ======================================================================
 
 RC-100 Button 1 또는 desktop 키보드 1로 순찰을 시작하고 Button 4/키보드 4로
-즉시 멈춘다. 공통 patrol controller는 /odom으로 0.15 m 전진량과 quaternion yaw로
+즉시 멈춘다. 공통 patrol controller는 /odom으로 1.0 m 전진량과 quaternion yaw로
 우측 90도 회전량을 측정한다. 네 변을 지나면 loop count를 올리고 계속 반복한다.
 
 Phase 1–8: ROS 2 Jazzy 데스크톱 환경, ROS 패키지, 이전 Nav2 waypoint patrol,
@@ -25,9 +25,10 @@ Nav2 task를 사용하지 않고 /odom feedback을 사용한다.
 - Gazebo/RViz/keyboard/controller/monitor 통합 demo launch와 Path display.
 - 실제 TurtleBot3 2.3.6 host patch가 FORWARD/TURN_RIGHT를 patrol ownership으로
   인식하도록 수정하고 pinned source에서 재컴파일.
-- Gazebo에서 키보드 시작/정지, 0.15 m 전진, 약 90도 회전, FORWARD/회전 STOP,
-  중복 START 무시, 재시작, 4변 후 LOOP 1 증가를 확인했다.
-- colcon build 및 현재 20개 테스트 통과 여부는 최근 검증을 따른다.
+- Gazebo에서 키보드 시작/정지, 1.0 m 전진(0.995–1.000 m), 90도 회전
+  (89.5–89.8°), FORWARD/TURN_RIGHT STOP, 중복 START 무시, 재시작,
+  두 번 연속 LOOP COUNT 증가를 확인했다.
+- `colcon build --symlink-install` 성공; ROS 테스트 20개 통과, 1개 skip.
 
 아직 실기에서 완료되지 않은 항목:
 - OpenCR firmware compile/flash 및 byte 24/25/52 확인.
@@ -126,11 +127,12 @@ STOP callback은 먼저 linear.x=0, angular.z=0인 TwistStamped를 /cmd_vel에 �
 FORWARD 완료 판단은 sqrt((x-start_x)^2+(y-start_y)^2), TURN_RIGHT 완료 판단은
 quaternion yaw와 wrap 처리된 -pi/2 각도 차이다. 시간은 주행량 계산에 쓰지 않는다.
 odom stale와 phase timeout은 센서/정체 안전용이다. 기본 목표/속도/허용오차는
-0.15m, -90°, 0.05m/s, 0.4rad/s, 5mm, 0.035rad다.
+1.0m, -90°, 0.15m/s, 최대 0.8rad/s(마지막 20°는 0.12rad/s), 5mm, 0.5°다.
 
 Monitor는 MODE, STATE, INPUT DEVICE, LAST COMMAND, 목표/현재 거리, 목표/현재 각도,
-LOOP COUNT, x/y/yaw를 표시한다. 네 차례 FORWARD와 TURN_RIGHT가 끝나면 LOOP 1이
-된다.
+설정 속도와 실제 발행 속도, LOOP COUNT, x/y/yaw를 표시한다. 네 차례 FORWARD와
+TURN_RIGHT가 끝나면 LOOP COUNT가 증가한다. Gazebo에서 LOOP 1과 LOOP 2를 연속으로
+확인했다.
 
 ======================================================================
 6. 실제 Raspberry Pi + RC-100 진행 상황
