@@ -5,3 +5,10 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 .vscode/
+.cache/
+*.swp
+*.swo
+.DS_Store
+core
+core.*
+*.core

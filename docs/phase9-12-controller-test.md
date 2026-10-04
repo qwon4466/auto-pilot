@@ -224,15 +224,25 @@ export LDS_MODEL=LDS-03
 ros2 launch turtlebot3_bringup robot.launch.py
 ```
 
-Patrol terminal; the robot bringup must already publish `/odom` and consume
-`TwistStamped` on `/cmd_vel`:
+Before launching patrol, inspect the active base subscriber type:
+
+```bash
+ros2 topic type /cmd_vel
+```
+
+The controller supports `geometry_msgs/msg/TwistStamped` (default) and
+`geometry_msgs/msg/Twist`. Pass the detected type to the robot launch. For example,
+if the base consumes `Twist`:
 
 ```bash
 source /opt/ros/jazzy/setup.bash
 source ~/bellingham/install/setup.bash
 export TURTLEBOT3_MODEL=waffle_pi
-ros2 launch turtlebot_patrol patrol_robot.launch.py
+ros2 launch turtlebot_patrol patrol_robot.launch.py cmd_vel_type:=geometry_msgs/msg/Twist
 ```
+
+Omit the argument or select `geometry_msgs/msg/TwistStamped` when that is the active
+base type. The Pi hardware's actual topic type still requires on-device confirmation.
 
 Check `/odom`, `/scan`, `/cmd_vel`, and the existing manual RC direction keys. The
 patrol launch does not start a second Nav2 or teleop velocity controller; do not run

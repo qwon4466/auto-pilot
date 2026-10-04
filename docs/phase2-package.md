@@ -2,7 +2,7 @@
 
 ## Workspace
 
-The repository root `/home/hkl9292/bellingham` is also the ROS 2 workspace root. ROS packages live under `src/`; generated `build/`, `install/`, and `log/` files are ignored by Git.
+The repository root `~/bellingham` is also the ROS 2 workspace root. ROS packages live under `src/`; generated `build/`, `install/`, and `log/` files are ignored by Git.
 
 ```text
 bellingham/
@@ -41,7 +41,7 @@ Results:
 - `rosdep update`: exit code 0; Jazzy was added and the cache was updated.
 - `rosdep check`: after sourcing `/opt/ros/jazzy/setup.bash`, `All system dependencies have been satisfied`. An unsourced shell did not know the `launch_ros` rosdep key.
 - `colcon build --symlink-install`: one package finished successfully, no warnings on the final run.
-- Package prefix: `/home/hkl9292/bellingham/install/turtlebot_patrol`.
+- Package prefix: `~/bellingham/install/turtlebot_patrol`.
 
 The first generated manifest used an invalid placeholder maintainer email and colcon warned during package discovery. The XML and setuptools metadata now use the configured Git maintainer identity; a clean rebuild completed without that warning.
 

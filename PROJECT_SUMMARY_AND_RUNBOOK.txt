@@ -1,6 +1,6 @@
 TurtleBot3 Waffle Pi odometry 반복 순찰: 진행 요약 및 실행 안내
 작성일: 2026-10-01
-작업 폴더: /home/hkl9292/bellingham
+작업 폴더: ~/bellingham
 
 ======================================================================
 1. 목표 및 현재 상태
@@ -98,7 +98,7 @@ KeyboardControl 또는 RC-100 host bridge -> /patrol_command -> PatrolController
   /patrol_telemetry     std_msgs/msg/String (진행 정보 JSON)
   /patrol_cycle_count   std_msgs/msg/UInt32  (4변 완성 횟수)
   /patrol_path          nav_msgs/msg/Path   (odom 궤적)
-  /cmd_vel              geometry_msgs/msg/TwistStamped
+  /cmd_vel              geometry_msgs/msg/TwistStamped by default; robot launch can select Twist
   /odom                 nav_msgs/msg/Odometry
   /scan                 sensor_msgs/msg/LaserScan
 
@@ -119,9 +119,10 @@ KeyboardControl 또는 RC-100 host bridge -> /patrol_command -> PatrolController
 5. STOP / loop 동작
 ======================================================================
 
-STOP callback은 먼저 linear.x=0, angular.z=0인 TwistStamped를 /cmd_vel에 발행한
-후 STOPPING 및 IDLE state를 발행한다. controller timer는 다음 직진 구간을 기다리지
-않으므로 FORWARD와 TURN_RIGHT 어느 때나 취소할 수 있다. STOP 후 IDLE 상태라면
+STOP callback은 먼저 선택된 /cmd_vel type(Twist 또는 TwistStamped)의
+linear.x=0, angular.z=0 메시지를 발행한 후 STOPPING 및 IDLE state를 발행한다.
+controller timer는 다음 직진 구간을 기다리지 않으므로 FORWARD와 TURN_RIGHT 어느
+때나 취소할 수 있다. STOP 후 IDLE 상태라면
 키보드/RC 방향키 수동모드가 다시 허용된다(실기 확인은 미완료).
 
 FORWARD 완료 판단은 sqrt((x-start_x)^2+(y-start_y)^2), TURN_RIGHT 완료 판단은

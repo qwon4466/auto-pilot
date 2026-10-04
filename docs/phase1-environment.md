@@ -26,8 +26,8 @@
 | 디스크 | 루트 99GB, 최근 확인 시 가용 약 42GB | 확인됨 |
 | 메모리 | RAM 7.7GiB, Swap 3.8GiB | 시뮬레이션 실행 후 부하 확인 필요 |
 | 그래픽 세션 | Wayland, `DISPLAY=:0` | GUI 세션 존재; 렌더링은 미검증 |
-| 현재 작업 폴더 | `/home/hkl9292/bellingham` | 작업 시작 시 비어 있었음 |
-| ROS workspace 및 저장소 | `/home/hkl9292/bellingham` | Phase 2 package scaffold 생성/빌드 확인 |
+| 현재 작업 폴더 | `~/bellingham` | 작업 시작 시 비어 있었음 |
+| ROS workspace 및 저장소 | `~/bellingham` | Phase 2 package scaffold 생성/빌드 확인 |
 | 시스템 설치 권한 | `sudo -n true` → `sudo: a password is required` | 사용자 터미널에서 인증 필요 |
 
 Python, Git, VS Code는 추가 설치가 필요하지 않다. ROS 설치 권한 부족은 OS 비호환 문제가 아니다.

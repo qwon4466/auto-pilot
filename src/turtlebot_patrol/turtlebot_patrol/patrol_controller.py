@@ -5,7 +5,7 @@ import math
 import signal
 from typing import Any
 
-from geometry_msgs.msg import PoseStamped, TwistStamped
+from geometry_msgs.msg import PoseStamped, Twist, TwistStamped
 from nav_msgs.msg import Odometry, Path
 import rclpy
 from rclpy.executors import ExternalShutdownException
@@ -37,6 +37,7 @@ class PatrolController(Node):
         self.declare_parameter('state_topic', '/patrol_state')
         self.declare_parameter('odom_topic', '/odom')
         self.declare_parameter('cmd_vel_topic', '/cmd_vel')
+        self.declare_parameter('cmd_vel_type', 'geometry_msgs/msg/TwistStamped')
         self.declare_parameter('cycle_count_topic', '/patrol_cycle_count')
         self.declare_parameter('telemetry_topic', '/patrol_telemetry')
         self.declare_parameter('input_source_topic', '/patrol_input_source')
@@ -79,8 +80,23 @@ class PatrolController(Node):
             UInt32, self.get_parameter('cycle_count_topic').value, self._status_qos())
         self._telemetry_pub = self.create_publisher(
             String, self.get_parameter('telemetry_topic').value, self._status_qos())
+        cmd_vel_type = str(self.get_parameter('cmd_vel_type').value)
+        cmd_vel_types = {
+            'Twist': Twist,
+            'geometry_msgs/msg/Twist': Twist,
+            'TwistStamped': TwistStamped,
+            'geometry_msgs/msg/TwistStamped': TwistStamped,
+        }
+        if cmd_vel_type not in cmd_vel_types:
+            raise ValueError(
+                "cmd_vel_type must be 'geometry_msgs/msg/Twist' or "
+                "'geometry_msgs/msg/TwistStamped'")
+        self._cmd_vel_message_type = cmd_vel_types[cmd_vel_type]
         self._cmd_vel_pub = self.create_publisher(
-            TwistStamped, self.get_parameter('cmd_vel_topic').value, 10)
+            self._cmd_vel_message_type,
+            self.get_parameter('cmd_vel_topic').value,
+            10,
+        )
         self._path_pub = self.create_publisher(
             Path, self.get_parameter('path_topic').value, self._status_qos())
         self._command_sub = self.create_subscription(
@@ -315,11 +331,16 @@ class PatrolController(Node):
     def _publish_velocity(self, linear: float, angular: float) -> None:
         self._commanded_linear_speed = linear
         self._commanded_angular_speed = angular
-        message = TwistStamped()
-        message.header.stamp = self.get_clock().now().to_msg()
-        message.header.frame_id = 'base_link'
-        message.twist.linear.x = linear
-        message.twist.angular.z = angular
+        if self._cmd_vel_message_type is TwistStamped:
+            message = TwistStamped()
+            message.header.stamp = self.get_clock().now().to_msg()
+            message.header.frame_id = 'base_link'
+            message.twist.linear.x = linear
+            message.twist.angular.z = angular
+        else:
+            message = Twist()
+            message.linear.x = linear
+            message.angular.z = angular
         self._cmd_vel_pub.publish(message)
 
     def _publish_zero_velocity(self) -> None:
