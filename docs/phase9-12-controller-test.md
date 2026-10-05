@@ -11,7 +11,7 @@ real base.
 ## Current patrol implementation update
 
 The old Nav2 waypoint controller is superseded for the square patrol behavior.
-The shared desktop/Pi controller now uses `/odom` to measure 1.0 m forward travel
+The shared desktop/Pi controller now uses `/odom` to measure 0.15 m forward travel
 and quaternion yaw to measure a right turn of π/2. It publishes `FORWARD` and
 `TURN_RIGHT` on `/patrol_state`, increments the loop count after four sides, and
 uses the same `/cmd_vel` topic. The desktop demo includes Gazebo, RViz, keyboard,

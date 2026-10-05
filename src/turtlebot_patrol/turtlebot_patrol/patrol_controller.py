@@ -1,4 +1,4 @@
-"""Odometry-controlled 1 m forward and 90 degree right-turn patrol."""
+"""Odometry-controlled 0.15 m forward and 90 degree right-turn patrol."""
 
 import json
 import math
@@ -42,7 +42,7 @@ class PatrolController(Node):
         self.declare_parameter('telemetry_topic', '/patrol_telemetry')
         self.declare_parameter('input_source_topic', '/patrol_input_source')
         self.declare_parameter('path_topic', '/patrol_path')
-        self.declare_parameter('target_distance', 1.0)
+        self.declare_parameter('target_distance', 0.15)
         self.declare_parameter('target_turn', math.pi / 2.0)
         self.declare_parameter('linear_speed', 0.15)
         self.declare_parameter('angular_speed', 0.8)
@@ -116,7 +116,7 @@ class PatrolController(Node):
         self._publish_cycle_count()
         self._publish_telemetry()
         self.get_logger().info(
-            'Ready: odometry-controlled 1.000 m forward, then 90 deg right; '
+            'Ready: odometry-controlled 0.150 m forward, then 90 deg right; '
             'four sides per loop')
 
     @staticmethod

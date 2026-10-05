@@ -7,13 +7,13 @@ ROS 2 Jazzy 기반 TurtleBot3 Waffle Pi 반복 순찰 프로젝트다. GitHub re
 ## 기능 및 검증 상태
 
 - 데스크톱 Gazebo에서 키보드 `1`은 START, `4`는 즉시 STOP이다.
-- 공통 순찰 코어는 `/odom` 거리와 orientation을 사용해 1m 직진 후 오른쪽 90°를
+- 공통 순찰 코어는 `/odom` 거리와 orientation을 사용해 15cm 직진 후 오른쪽 90°를
   반복한다. 시간으로 이동거리나 회전량을 계산하지 않는다.
 - STOP은 zero velocity를 발행하고 `STOPPING → IDLE`로 돌아온다. STOP 뒤 다시
   시작할 수 있으며 monitor가 현재/목표 거리, 각도, 속도 및 loop count를 표시한다.
-- Simulation에서 연속 두 loop, 직진 0.995–1.000m, 회전 89.5–89.8°,
-  FORWARD/TURN_RIGHT 중 STOP 및 재시작을 확인했다. `colcon test`: 20 passed,
-  1 skipped.
+- Simulation에서 이전 1m 설정으로 연속 두 loop, 직진 0.995–1.000m, 회전
+  89.5–89.8°, FORWARD/TURN_RIGHT 중 STOP 및 재시작을 확인했다. 현재 15cm 설정의
+  실기 거리 정확도는 Pi에서 검증해야 한다. `colcon test`: 20 passed, 1 skipped.
 - 실제 대상은 TurtleBot3 Waffle Pi, Raspberry Pi 4, OpenCR, LDS-03,
   RC-100 + BT-410이다. OpenCR RC-100 연동 patch는 준비되어 있지만 Button 1/4,
   실제 이동 정확도, manual-control 복귀는 Pi/로봇에서 검증해야 한다.
@@ -120,7 +120,7 @@ ros2 launch turtlebot_patrol patrol_robot.launch.py \
 ```
 
 controller는 두 message type을 모두 지원하지만, robot launch의 type은 활성
-TurtleBot3 subscriber와 일치시켜야 한다. 실물 launch는 목표거리 1m와 90°를
+TurtleBot3 subscriber와 일치시켜야 한다. 실물 launch는 목표거리 15cm와 90°를
 유지하면서 직진속도 0.05m/s, 회전 최대속도 0.4rad/s로 제한한다. Desktop의 빠른
 시뮬레이션 속도는 실물 launch에 적용하지 않는다.
 
@@ -131,11 +131,11 @@ TurtleBot3 subscriber와 일치시켜야 한다. 실물 launch는 목표거리 1
 2. 바퀴 주변을 비우고 로봇을 들어 올리거나 평탄한 시험공간에서 시작한다. 즉시
    수동 정지할 RC/전원 차단 수단을 준비한다.
 3. RC 방향키 수동주행을 확인한 뒤 patrol controller를 실행한다.
-4. Button 1 START, 실측 1m 직진과 90° 우회전을 확인하고 Button 4 STOP을 시험한다.
+4. Button 1 START, 실측 15cm 직진과 90° 우회전을 확인하고 Button 4 STOP을 시험한다.
 5. STOP 후 RC 방향키 manual-control 복귀를 확인한 뒤 Button 1/4 transport와 반복
    loop를 시험한다.
 
-Pi 4, 실제 1m 이동거리, 실제 90° 각도, RC Button 1/4, manual-control 복귀는 아직
+Pi 4, 실제 15cm 이동거리, 실제 90° 각도, RC Button 1/4, manual-control 복귀는 아직
 하드웨어에서 검증되지 않았다. simulation 성공을 실물 검증 완료로 간주하지 않는다.
 
 ## Python requirements

@@ -87,7 +87,7 @@ class PatrolMonitor(Node):
         command = str(data.get('last_command', 'NONE'))
         phase = str(data.get('state', self._state))
         phase_number = int(data.get('phase_number', 0))
-        target_distance = float(data.get('target_distance', 1.0))
+        target_distance = float(data.get('target_distance', 0.15))
         current_distance = float(data.get('current_distance', 0.0))
         target_turn = math.degrees(float(data.get('target_turn', math.pi / 2.0)))
         current_turn = math.degrees(float(data.get('current_turn', 0.0)))
