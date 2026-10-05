@@ -61,7 +61,7 @@ Pi에 Gazebo나 desktop dependency를 설치하지 않는다. 먼저 저장공�
 ```bash
 df -h /
 cd ~
-git clone https://github.com/<GITHUB_OWNER>/auto-pilot.git
+git clone https://github.com/qwon4466/auto-pilot.git
 cd ~/auto-pilot
 tools/pi4_build_overlay.sh
 ```
