@@ -1,19 +1,18 @@
-# Python dependencies only. Install with:
-#   python3 -m pip install -r requirements.txt
+# Python-only convenience/test dependencies. This is NOT the Pi installer:
+# pip cannot install ROS 2, TurtleBot3, colcon, drivers, or Ubuntu system libraries.
+# On Ubuntu/ROS, use the distro packages to keep Python modules aligned with ROS:
+#   tools/install_pi_dependencies.sh
+# That script installs ROS Base, TurtleBot3 bringup/description/messages,
+# Dynamixel and LDS drivers, xacro, colcon, rosdep, build tools, and the apt
+# Python packages (PyYAML/pytest) needed by this project.
+# Then build the patched TurtleBot3 host node and patrol package with:
+#   tools/pi4_build_overlay.sh
+# The Pi also needs ROS 2 Jazzy ROS Base and a configured ROS 2 apt repository.
+# OpenCR firmware must be compiled and flashed separately from a supported PC;
+# it is not installed by pip or by the Pi overlay build.
 #
-# This file cannot install ROS 2, Nav2, Gazebo, TurtleBot3, colcon, or rosdep.
-# Those are Ubuntu/ROS APT packages and are listed in
-# tools/install_desktop_dependencies.sh. On ROS systems, prefer the OS packages
-# to keep Python modules aligned with the ROS installation.
-# The desktop APT set is: ros-jazzy-desktop, ros-dev-tools,
-# python3-colcon-common-extensions, python3-rosdep, python3-yaml,
-# python3-pytest, ros-jazzy-navigation2, ros-jazzy-nav2-bringup,
-# ros-jazzy-nav2-simple-commander, ros-jazzy-ros-gz-sim,
-# ros-jazzy-ros-gz-bridge, ros-jazzy-turtlebot3,
-# ros-jazzy-turtlebot3-simulations, ros-jazzy-domain-bridge.
-# OpenCR firmware compilation additionally uses Arduino CLI, OpenCR core
-# 1.5.3, Dynamixel2Arduino 0.6.1 and (on x86_64) libncurses5-dev:i386; see
-# docs/phase9-12-controller-test.md.
+# For the desktop simulator (not needed on the Pi), see
+# tools/install_desktop_dependencies.sh.
 
 PyYAML>=6,<7
 pytest>=7,<9

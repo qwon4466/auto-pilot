@@ -55,20 +55,30 @@ launch terminal에 포커스를 둔 채 `1`로 반복 순찰을 시작하고 `4`
 
 ## Raspberry Pi 4 배포
 
-Pi에 Gazebo나 desktop dependency를 설치하지 않는다. 먼저 저장공간을 확인한다.
-최소 1–2GB 여유를 확보하고, 가능하면 3GB 이상을 권장한다.
+Pi에는 Gazebo나 desktop dependency를 설치하지 않는다. Ubuntu 24.04 64-bit와
+ROS 2 Jazzy ROS Base가 설치되어 있어야 한다. ROS 2 APT 저장소를 설정한 뒤
+저장공간을 확인한다. 최소 1–2GB 여유를 확보하고, 가능하면 3GB 이상을 권장한다.
 
 ```bash
 df -h /
 cd ~
 git clone https://github.com/qwon4466/auto-pilot.git
 cd ~/auto-pilot
+```
+
+Pi 의존성 설치와 overlay build:
+
+```bash
+tools/install_pi_dependencies.sh
 tools/pi4_build_overlay.sh
 ```
 
-Overlay script는 TurtleBot3 `2.3.6` host node를 sparse clone하고 RC-100 host patch와
-patrol package를 overlay로 빌드한다. `rosdep`에서 요구하는 런타임 개발 의존성은
-설치되며 Gazebo는 포함되지 않는다.
+첫 스크립트는 Pi용 ROS/TurtleBot3 APT 의존성과 `rosdep` 의존성을 설치한다.
+두 번째는 TurtleBot3 `2.3.6` host node를 sparse clone하고 RC-100 host patch와
+patrol package를 overlay로 빌드한다. Gazebo는 설치하지 않는다.
+`requirements.txt`는 pip Python 보조/테스트 패키지만 다루며 ROS와 드라이버는
+설치하지 않는다. OpenCR RC-100 패치 펌웨어는 별도 PC에서 컴파일해 OpenCR에
+플래시해야 실제 버튼 1/4가 연결된다.
 
 먼저 bringup terminal에서:
 
